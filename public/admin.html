@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - L3 SOD</title>
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+<header class="admin-header">
+    <div>
+        <h1>Admin Dashboard</h1>
+        <p id="adminWelcome">Loading...</p>
+    </div>
+
+    <div class="header-actions">
+        <a href="/dashboard">Student Dashboard</a>
+        <a href="/logout">Logout</a>
+    </div>
+</header>
+
+<main class="admin-container">
+
+    <section class="admin-card">
+        <div class="card-header">
+            <div>
+                <h2>User Management</h2>
+                <p>Manage registered users and their roles.</p>
+            </div>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="usersTableBody">
+                    <tr>
+                        <td colspan="5">Loading users...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</main>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
