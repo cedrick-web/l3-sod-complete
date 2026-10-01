@@ -1,32 +1,97 @@
 const adminWelcome = document.getElementById("adminWelcome");
+
+const totalUsers = document.getElementById("totalUsers");
+const totalAdmins = document.getElementById("totalAdmins");
+const totalStudents = document.getElementById("totalStudents");
+const totalProjects = document.getElementById("totalProjects");
+
 const usersTableBody = document.getElementById("usersTableBody");
 const message = document.getElementById("message");
+const userSearch = document.getElementById("userSearch");
 
-async function loadAdmin() {
+const userModal = document.getElementById("userModal");
+const modalTitle = document.getElementById("modalTitle");
+
+const userForm = document.getElementById("userForm");
+const userId = document.getElementById("userId");
+const userName = document.getElementById("userName");
+const userEmail = document.getElementById("userEmail");
+const userPassword = document.getElementById("userPassword");
+const userRole = document.getElementById("userRole");
+
+const passwordHelp = document.getElementById("passwordHelp");
+
+const createUserButton =
+    document.getElementById("createUserButton");
+
+const closeModal =
+    document.getElementById("closeModal");
+
+const cancelButton =
+    document.getElementById("cancelButton");
+
+let currentAdmin = null;
+let users = [];
+
+/* =========================
+   INITIALIZE
+   ========================= */
+
+async function initializeAdmin() {
     try {
-        const sessionResponse = await fetch("/api/session");
+        const response = await fetch("/api/session");
 
-        if (!sessionResponse.ok) {
+        if (!response.ok) {
             window.location.href = "/login";
             return;
         }
 
-        const user = await sessionResponse.json();
+        currentAdmin = await response.json();
 
-        if (user.role !== "admin") {
+        if (currentAdmin.role !== "admin") {
             window.location.href = "/dashboard";
             return;
         }
 
-        adminWelcome.textContent = `Logged in as ${user.name} (${user.email})`;
+        adminWelcome.textContent =
+            `Logged in as ${currentAdmin.name} (${currentAdmin.email})`;
 
-        await loadUsers();
+        await Promise.all([
+            loadStats(),
+            loadUsers()
+        ]);
 
     } catch (error) {
         console.error(error);
-        showMessage("Could not load admin dashboard.", "error");
+        showMessage(
+            "Could not load admin dashboard.",
+            "error"
+        );
     }
 }
+
+/* =========================
+   STATISTICS
+   ========================= */
+
+async function loadStats() {
+    const response = await fetch("/api/admin/stats");
+
+    if (!response.ok) {
+        throw new Error("Could not load statistics");
+    }
+
+    const stats = await response.json();
+
+    totalUsers.textContent = stats.totalUsers;
+    totalAdmins.textContent = stats.totalAdmins;
+    totalStudents.textContent = stats.totalStudents;
+    totalProjects.textContent = stats.totalProjects;
+}
+
+/* =========================
+   LOAD USERS
+   ========================= */
 
 async function loadUsers() {
     const response = await fetch("/api/users");
@@ -35,40 +100,111 @@ async function loadUsers() {
         throw new Error("Could not load users");
     }
 
-    const users = await response.json();
+    users = await response.json();
+
+    renderUsers();
+}
+
+/* =========================
+   DISPLAY USERS
+   ========================= */
+
+function renderUsers() {
+    const search = userSearch.value
+        .trim()
+        .toLowerCase();
+
+    const filteredUsers = users.filter(user =>
+        user.name.toLowerCase().includes(search) ||
+        user.email.toLowerCase().includes(search)
+    );
 
     usersTableBody.innerHTML = "";
 
-    if (users.length === 0) {
+    if (!filteredUsers.length) {
         usersTableBody.innerHTML = `
             <tr>
-                <td colspan="5">No users found.</td>
+                <td colspan="6">No users found.</td>
             </tr>
         `;
+
         return;
     }
 
-    users.forEach(user => {
+    filteredUsers.forEach(user => {
+
         const row = document.createElement("tr");
+
+        const createdDate = user.created_at
+            ? new Date(user.created_at).toLocaleDateString()
+            : "-";
+
+        const isCurrentAdmin =
+            Number(user.id) === Number(currentAdmin.id);
 
         row.innerHTML = `
             <td>${user.id}</td>
-            <td>${escapeHtml(user.name)}</td>
-            <td>${escapeHtml(user.email)}</td>
+
             <td>
-                <select id="role-${user.id}">
-                    <option value="student" ${user.role === "student" ? "selected" : ""}>
+                ${escapeHtml(user.name)}
+                ${
+                    isCurrentAdmin
+                        ? '<span class="you-badge">You</span>'
+                        : ''
+                }
+            </td>
+
+            <td>${escapeHtml(user.email)}</td>
+
+            <td>
+                <select
+                    class="role-select"
+                    data-id="${user.id}"
+                    ${isCurrentAdmin ? "disabled" : ""}
+                >
+                    <option
+                        value="student"
+                        ${user.role === "student" ? "selected" : ""}
+                    >
                         Student
                     </option>
-                    <option value="admin" ${user.role === "admin" ? "selected" : ""}>
+
+                    <option
+                        value="admin"
+                        ${user.role === "admin" ? "selected" : ""}
+                    >
                         Admin
                     </option>
                 </select>
             </td>
-            <td>
-                <button class="save-role" onclick="updateRole(${user.id})">
-                    Save
+
+            <td>${createdDate}</td>
+
+            <td class="actions">
+
+                <button
+                    class="edit-button"
+                    onclick="openEditUser(${user.id})"
+                >
+                    Edit
                 </button>
+
+                <button
+                    class="save-role-button"
+                    onclick="changeRole(${user.id})"
+                    ${isCurrentAdmin ? "disabled" : ""}
+                >
+                    Role
+                </button>
+
+                <button
+                    class="delete-button"
+                    onclick="deleteUser(${user.id})"
+                    ${isCurrentAdmin ? "disabled" : ""}
+                >
+                    Delete
+                </button>
+
             </td>
         `;
 
@@ -76,45 +212,346 @@ async function loadUsers() {
     });
 }
 
-async function updateRole(userId) {
-    const select = document.getElementById(`role-${userId}`);
-    const role = select.value;
+/* =========================
+   CREATE USER
+   ========================= */
+
+function openCreateUser() {
+    modalTitle.textContent = "Create User";
+
+    userForm.reset();
+
+    userId.value = "";
+
+    userRole.value = "student";
+
+    userPassword.required = true;
+
+    passwordHelp.textContent =
+        "(required for new users)";
+
+    userModal.classList.remove("hidden");
+
+    userName.focus();
+}
+
+/* =========================
+   EDIT USER
+   ========================= */
+
+function openEditUser(id) {
+    const user = users.find(
+        item => Number(item.id) === Number(id)
+    );
+
+    if (!user) {
+        showMessage(
+            "User not found.",
+            "error"
+        );
+
+        return;
+    }
+
+    modalTitle.textContent = "Edit User";
+
+    userId.value = user.id;
+    userName.value = user.name;
+    userEmail.value = user.email;
+    userRole.value = user.role;
+
+    userPassword.value = "";
+    userPassword.required = false;
+
+    passwordHelp.textContent =
+        "(leave empty to keep current password)";
+
+    userModal.classList.remove("hidden");
+
+    userName.focus();
+}
+
+/* =========================
+   SAVE USER
+   ========================= */
+
+userForm.addEventListener("submit", async event => {
+
+    event.preventDefault();
+
+    const id = userId.value;
+
+    const data = {
+        name: userName.value.trim(),
+        email: userEmail.value.trim(),
+        password: userPassword.value,
+        role: userRole.value
+    };
 
     try {
-        const response = await fetch(`/api/users/${userId}/role`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ role })
-        });
 
-        const data = await response.json();
+        let response;
+
+        if (id) {
+
+            response = await fetch(
+                `/api/users/${id}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(data)
+                }
+            );
+
+        } else {
+
+            response = await fetch(
+                "/api/users",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(data)
+                }
+            );
+        }
+
+        const result = await response.json();
 
         if (!response.ok) {
-            showMessage(data.message || "Could not update role.", "error");
-            await loadUsers();
+            showMessage(
+                result.message || "Operation failed.",
+                "error"
+            );
+
             return;
         }
 
-        showMessage("User role updated successfully.", "success");
+        closeUserModal();
+
+        showMessage(
+            id
+                ? "User updated successfully."
+                : "User created successfully.",
+            "success"
+        );
+
         await loadUsers();
+        await loadStats();
 
     } catch (error) {
+
         console.error(error);
-        showMessage("Could not update user role.", "error");
+
+        showMessage(
+            "Could not save user.",
+            "error"
+        );
+    }
+});
+
+/* =========================
+   CHANGE ROLE
+   ========================= */
+
+async function changeRole(id) {
+
+    const select = document.querySelector(
+        `.role-select[data-id="${id}"]`
+    );
+
+    if (!select) {
+        return;
+    }
+
+    const role = select.value;
+
+    try {
+
+        const response = await fetch(
+            `/api/users/${id}/role`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ role })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+
+            showMessage(
+                result.message || "Could not change role.",
+                "error"
+            );
+
+            await loadUsers();
+
+            return;
+        }
+
+        showMessage(
+            "User role updated successfully.",
+            "success"
+        );
+
+        await loadUsers();
+        await loadStats();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+            "Could not change user role.",
+            "error"
+        );
     }
 }
 
+/* =========================
+   DELETE USER
+   ========================= */
+
+async function deleteUser(id) {
+
+    const user = users.find(
+        item => Number(item.id) === Number(id)
+    );
+
+    if (!user) {
+        return;
+    }
+
+    if (
+        Number(user.id) ===
+        Number(currentAdmin.id)
+    ) {
+        showMessage(
+            "You cannot delete your own account.",
+            "error"
+        );
+
+        return;
+    }
+
+    const confirmed = window.confirm(
+        `Delete user "${user.name}"?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `/api/users/${id}`,
+            {
+                method: "DELETE"
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+
+            showMessage(
+                result.message || "Could not delete user.",
+                "error"
+            );
+
+            return;
+        }
+
+        showMessage(
+            "User deleted successfully.",
+            "success"
+        );
+
+        await loadUsers();
+        await loadStats();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+            "Could not delete user.",
+            "error"
+        );
+    }
+}
+
+/* =========================
+   MODAL
+   ========================= */
+
+function closeUserModal() {
+    userModal.classList.add("hidden");
+    userForm.reset();
+}
+
+createUserButton.addEventListener(
+    "click",
+    openCreateUser
+);
+
+closeModal.addEventListener(
+    "click",
+    closeUserModal
+);
+
+cancelButton.addEventListener(
+    "click",
+    closeUserModal
+);
+
+userModal.addEventListener("click", event => {
+
+    if (event.target === userModal) {
+        closeUserModal();
+    }
+
+});
+
+/* =========================
+   SEARCH
+   ========================= */
+
+userSearch.addEventListener(
+    "input",
+    renderUsers
+);
+
+/* =========================
+   MESSAGE
+   ========================= */
+
 function showMessage(text, type) {
-    message.innerHTML = `<div class="${type}">${escapeHtml(text)}</div>`;
+
+    message.innerHTML =
+        `<div class="${type}">
+            ${escapeHtml(text)}
+        </div>`;
 
     setTimeout(() => {
         message.innerHTML = "";
     }, 4000);
 }
 
+/* =========================
+   SECURITY
+   ========================= */
+
 function escapeHtml(value) {
+
     return String(value)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
@@ -123,4 +560,8 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
-loadAdmin();
+/* =========================
+   START
+   ========================= */
+
+initializeAdmin();

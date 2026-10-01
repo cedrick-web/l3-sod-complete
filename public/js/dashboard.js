@@ -64,3 +64,38 @@ async function loadDashboard() {
 }
 
 loadDashboard();
+
+async function showAdminDashboardButton() {
+    try {
+        const response = await fetch("/api/session");
+        const session = await response.json();
+
+        if (!session.loggedIn || session.user?.role !== "admin") {
+            return;
+        }
+
+        let button = document.getElementById("adminDashboardButton");
+
+        if (!button) {
+            button = document.createElement("a");
+            button.id = "adminDashboardButton";
+            button.href = "/admin";
+            button.textContent = "Admin Dashboard";
+            button.className = "admin-dashboard-btn";
+
+            const nav = document.querySelector("nav") ||
+                        document.querySelector("header") ||
+                        document.querySelector(".navbar");
+
+            if (nav) {
+                nav.appendChild(button);
+            } else {
+                document.body.prepend(button);
+            }
+        }
+    } catch (error) {
+        console.error("Could not check admin status:", error);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", showAdminDashboardButton);

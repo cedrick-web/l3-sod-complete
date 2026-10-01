@@ -15,22 +15,59 @@
     </div>
 
     <div class="header-actions">
-        <a href="/dashboard">Student Dashboard</a>
+        <a href="/dashboard">Dashboard</a>
         <a href="/logout">Logout</a>
     </div>
 </header>
 
 <main class="admin-container">
 
+    <!-- STATISTICS -->
+    <section class="stats-grid">
+        <div class="stat-card">
+            <span>Total Users</span>
+            <strong id="totalUsers">0</strong>
+        </div>
+
+        <div class="stat-card">
+            <span>Administrators</span>
+            <strong id="totalAdmins">0</strong>
+        </div>
+
+        <div class="stat-card">
+            <span>Students</span>
+            <strong id="totalStudents">0</strong>
+        </div>
+
+        <div class="stat-card">
+            <span>Projects</span>
+            <strong id="totalProjects">0</strong>
+        </div>
+    </section>
+
+    <!-- USERS -->
     <section class="admin-card">
-        <div class="card-header">
+
+        <div class="section-header">
             <div>
                 <h2>User Management</h2>
-                <p>Manage registered users and their roles.</p>
+                <p>Create, update, delete and manage user roles.</p>
             </div>
+
+            <button id="createUserButton" class="primary-button">
+                + Create User
+            </button>
         </div>
 
         <div id="message"></div>
+
+        <div class="search-box">
+            <input
+                type="search"
+                id="userSearch"
+                placeholder="Search by name or email..."
+            >
+        </div>
 
         <div class="table-wrapper">
             <table>
@@ -40,21 +77,92 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Role</th>
-                        <th>Action</th>
+                        <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
 
                 <tbody id="usersTableBody">
                     <tr>
-                        <td colspan="5">Loading users...</td>
+                        <td colspan="6">Loading users...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
     </section>
 
 </main>
 
+<!-- USER MODAL -->
+<div id="userModal" class="modal hidden">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <h2 id="modalTitle">Create User</h2>
+            <button id="closeModal" class="close-button">&times;</button>
+        </div>
+
+        <form id="userForm">
+
+            <input type="hidden" id="userId">
+
+            <label for="userName">Name</label>
+            <input
+                type="text"
+                id="userName"
+                required
+                maxlength="100"
+            >
+
+            <label for="userEmail">Email</label>
+            <input
+                type="email"
+                id="userEmail"
+                required
+                maxlength="150"
+            >
+
+            <label for="userPassword">
+                Password
+                <span id="passwordHelp"></span>
+            </label>
+
+            <input
+                type="password"
+                id="userPassword"
+                minlength="6"
+            >
+
+            <label for="userRole">Role</label>
+            <select id="userRole">
+                <option value="student">Student</option>
+                <option value="admin">Admin</option>
+            </select>
+
+            <div class="modal-actions">
+                <button
+                    type="button"
+                    id="cancelButton"
+                    class="secondary-button"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+                    Save User
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
 <script src="/js/admin.js"></script>
+
 </body>
 </html>
