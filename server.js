@@ -25,7 +25,7 @@ app.use("/css", express.static(path.join(__dirname, "public/css")));
 app.use("/js", express.static(path.join(__dirname, "public/js")));
 
 /* =========================
-   AUTHENTICATION MIDDLEWARE
+   AUTHENTICATION
    ========================= */
 
 function requireLogin(req, res, next) {
@@ -42,7 +42,9 @@ function requireAdmin(req, res, next) {
     }
 
     if (req.session.user.role !== "admin") {
-        return res.status(403).send("Access denied. Administrator privileges required.");
+        return res.status(403).send(
+            "Access denied. Administrator privileges required."
+        );
     }
 
     next();
@@ -93,7 +95,7 @@ app.get("/register", redirectIfLoggedIn, (req, res) =>
 );
 
 /* =========================
-   REGISTRATION
+   REGISTER
    ========================= */
 
 app.post("/register", async (req, res) => {
@@ -128,14 +130,14 @@ app.post("/register", async (req, res) => {
                         );
                     }
 
-                    console.error("Registration database error:", error);
+                    console.error("Registration error:", error);
 
                     return res.redirect(
                         "/register?error=Registration%20failed"
                     );
                 }
 
-                return res.redirect(
+                res.redirect(
                     "/login?message=Account%20created.%20Please%20log%20in"
                 );
             }
@@ -217,14 +219,11 @@ app.post("/login", (req, res) => {
                             return res.redirect("/admin");
                         }
 
-                        return res.redirect("/dashboard");
+                        res.redirect("/dashboard");
                     });
                 });
-            } catch (compareError) {
-                console.error(
-                    "Password check error:",
-                    compareError
-                );
+            } catch (error) {
+                console.error("Password check error:", error);
 
                 res.redirect("/login?error=Login%20failed");
             }
@@ -249,7 +248,7 @@ app.get("/logout", requireLogin, (req, res) => {
 });
 
 /* =========================
-   SESSION API
+   SESSION
    ========================= */
 
 app.get("/api/session", requireLogin, (req, res) => {
@@ -257,12 +256,60 @@ app.get("/api/session", requireLogin, (req, res) => {
 });
 
 /* =========================
-   ADMIN USER API
+   ADMIN: STATISTICS
+   ========================= */
+
+app.get("/api/admin/stats", requireAdmin, (req, res) => {
+    db.query(
+        `SELECT
+            COUNT(*) AS totalUsers,
+            SUM(role = 'admin') AS totalAdmins,
+            SUM(role = 'student') AS totalStudents
+         FROM users`,
+        (userError, userRows) => {
+            if (userError) {
+                console.error("User stats error:", userError);
+
+                return res.status(500).json({
+                    message: "Could not load statistics"
+                });
+            }
+
+            db.query(
+                "SELECT COUNT(*) AS totalProjects FROM projects",
+                (projectError, projectRows) => {
+                    if (projectError) {
+                        console.error(
+                            "Project stats error:",
+                            projectError
+                        );
+
+                        return res.status(500).json({
+                            message: "Could not load statistics"
+                        });
+                    }
+
+                    res.json({
+                        totalUsers: Number(userRows[0].totalUsers || 0),
+                        totalAdmins: Number(userRows[0].totalAdmins || 0),
+                        totalStudents: Number(userRows[0].totalStudents || 0),
+                        totalProjects: Number(
+                            projectRows[0].totalProjects || 0
+                        )
+                    });
+                }
+            );
+        }
+    );
+});
+
+/* =========================
+   ADMIN: READ USERS
    ========================= */
 
 app.get("/api/users", requireAdmin, (req, res) => {
     db.query(
-        `SELECT id, name, email, role
+        `SELECT id, name, email, role, created_at
          FROM users
          ORDER BY id ASC`,
         (error, rows) => {
@@ -280,7 +327,175 @@ app.get("/api/users", requireAdmin, (req, res) => {
 });
 
 /* =========================
-   CHANGE USER ROLE
+   ADMIN: CREATE USER
+   ========================= */
+
+app.post("/api/users", requireAdmin, async (req, res) => {
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const role = String(req.body.role || "student").trim();
+
+    if (!name || !email || !password) {
+        return res.status(400).json({
+            message: "Name, email and password are required."
+        });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({
+            message: "Password must be at least 6 characters."
+        });
+    }
+
+    if (!["student", "admin"].includes(role)) {
+        return res.status(400).json({
+            message: "Role must be student or admin."
+        });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        db.query(
+            `INSERT INTO users
+             (name, email, password, role)
+             VALUES (?, ?, ?, ?)`,
+            [name, email, hashedPassword, role],
+            (error, result) => {
+                if (error) {
+                    if (error.code === "ER_DUP_ENTRY") {
+                        return res.status(409).json({
+                            message: "That email is already registered."
+                        });
+                    }
+
+                    console.error("Create user error:", error);
+
+                    return res.status(500).json({
+                        message: "Could not create user."
+                    });
+                }
+
+                res.status(201).json({
+                    message: "User created successfully.",
+                    userId: result.insertId
+                });
+            }
+        );
+    } catch (error) {
+        console.error("Password hashing error:", error);
+
+        res.status(500).json({
+            message: "Could not create user."
+        });
+    }
+});
+
+/* =========================
+   ADMIN: UPDATE USER
+   ========================= */
+
+app.put("/api/users/:id", requireAdmin, async (req, res) => {
+    const userId = Number(req.params.id);
+
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return res.status(400).json({
+            message: "Invalid user ID."
+        });
+    }
+
+    if (!name || !email) {
+        return res.status(400).json({
+            message: "Name and email are required."
+        });
+    }
+
+    try {
+        let query;
+        let values;
+
+        if (password) {
+            if (password.length < 6) {
+                return res.status(400).json({
+                    message: "Password must be at least 6 characters."
+                });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            query = `
+                UPDATE users
+                SET name = ?, email = ?, password = ?
+                WHERE id = ?
+            `;
+
+            values = [
+                name,
+                email,
+                hashedPassword,
+                userId
+            ];
+        } else {
+            query = `
+                UPDATE users
+                SET name = ?, email = ?
+                WHERE id = ?
+            `;
+
+            values = [
+                name,
+                email,
+                userId
+            ];
+        }
+
+        db.query(query, values, (error, result) => {
+            if (error) {
+                if (error.code === "ER_DUP_ENTRY") {
+                    return res.status(409).json({
+                        message: "That email is already registered."
+                    });
+                }
+
+                console.error("Update user error:", error);
+
+                return res.status(500).json({
+                    message: "Could not update user."
+                });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    message: "User not found."
+                });
+            }
+
+            /* Keep the current admin's session information current */
+            if (userId === Number(req.session.user.id)) {
+                req.session.user.name = name;
+                req.session.user.email = email;
+            }
+
+            res.json({
+                message: "User updated successfully."
+            });
+        });
+    } catch (error) {
+        console.error("Update user error:", error);
+
+        res.status(500).json({
+            message: "Could not update user."
+        });
+    }
+});
+
+/* =========================
+   ADMIN: CHANGE ROLE
    ========================= */
 
 app.put("/api/users/:id/role", requireAdmin, (req, res) => {
@@ -289,17 +504,16 @@ app.put("/api/users/:id/role", requireAdmin, (req, res) => {
 
     if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
         return res.status(400).json({
-            message: "Invalid user ID"
+            message: "Invalid user ID."
         });
     }
 
     if (!["student", "admin"].includes(newRole)) {
         return res.status(400).json({
-            message: "Role must be student or admin"
+            message: "Role must be student or admin."
         });
     }
 
-    /* Prevent an admin from changing their own role */
     if (targetUserId === Number(req.session.user.id)) {
         return res.status(403).json({
             message: "You cannot change your own role."
@@ -314,19 +528,18 @@ app.put("/api/users/:id/role", requireAdmin, (req, res) => {
                 console.error("Target user lookup error:", error);
 
                 return res.status(500).json({
-                    message: "Could not find user"
+                    message: "Could not find user."
                 });
             }
 
             if (!rows.length) {
                 return res.status(404).json({
-                    message: "User not found"
+                    message: "User not found."
                 });
             }
 
             const targetUser = rows[0];
 
-            /* Prevent removing the final administrator */
             if (
                 targetUser.role === "admin" &&
                 newRole === "student"
@@ -341,7 +554,8 @@ app.put("/api/users/:id/role", requireAdmin, (req, res) => {
                             );
 
                             return res.status(500).json({
-                                message: "Could not verify administrator count"
+                                message:
+                                    "Could not verify administrator count."
                             });
                         }
 
@@ -381,31 +595,131 @@ function updateUserRole(userId, role, res) {
         [role, userId],
         (error, result) => {
             if (error) {
-                console.error(
-                    "Role update error:",
-                    error
-                );
+                console.error("Role update error:", error);
 
                 return res.status(500).json({
-                    message: "Could not update user role"
+                    message: "Could not update user role."
                 });
             }
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({
-                    message: "User not found"
+                    message: "User not found."
                 });
             }
 
             res.json({
-                message: "User role updated successfully"
+                message: "User role updated successfully."
             });
         }
     );
 }
 
 /* =========================
-   PROJECTS API
+   ADMIN: DELETE USER
+   ========================= */
+
+app.delete("/api/users/:id", requireAdmin, (req, res) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+        return res.status(400).json({
+            message: "Invalid user ID."
+        });
+    }
+
+    if (userId === Number(req.session.user.id)) {
+        return res.status(403).json({
+            message: "You cannot delete your own account."
+        });
+    }
+
+    db.query(
+        "SELECT id, role FROM users WHERE id = ? LIMIT 1",
+        [userId],
+        (error, rows) => {
+            if (error) {
+                console.error("Delete lookup error:", error);
+
+                return res.status(500).json({
+                    message: "Could not find user."
+                });
+            }
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    message: "User not found."
+                });
+            }
+
+            const targetUser = rows[0];
+
+            if (targetUser.role === "admin") {
+                db.query(
+                    "SELECT COUNT(*) AS adminCount FROM users WHERE role = 'admin'",
+                    (countError, countRows) => {
+                        if (countError) {
+                            console.error(
+                                "Admin count error:",
+                                countError
+                            );
+
+                            return res.status(500).json({
+                                message:
+                                    "Could not verify administrator count."
+                            });
+                        }
+
+                        const adminCount =
+                            Number(countRows[0].adminCount);
+
+                        if (adminCount <= 1) {
+                            return res.status(403).json({
+                                message:
+                                    "The last administrator cannot be deleted."
+                            });
+                        }
+
+                        deleteUser(userId, res);
+                    }
+                );
+
+                return;
+            }
+
+            deleteUser(userId, res);
+        }
+    );
+});
+
+function deleteUser(userId, res) {
+    db.query(
+        "DELETE FROM users WHERE id = ?",
+        [userId],
+        (error, result) => {
+            if (error) {
+                console.error("Delete user error:", error);
+
+                return res.status(500).json({
+                    message: "Could not delete user."
+                });
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    message: "User not found."
+                });
+            }
+
+            res.json({
+                message: "User deleted successfully."
+            });
+        }
+    );
+}
+
+/* =========================
+   PROJECTS
    ========================= */
 
 app.get("/api/projects", requireLogin, (req, res) => {
