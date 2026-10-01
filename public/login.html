@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | L3 SOD</title><link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <h1>Login</h1><p class="muted">Sign in to continue to your dashboard.</p>
+    <p class="notice error" id="error-message"></p><p class="notice success" id="success-message"></p>
+    <form action="/login" method="POST">
+      <label for="email">Email</label><input id="email" type="email" name="email" placeholder="Enter your email" required>
+      <label for="password">Password</label><input id="password" type="password" name="password" placeholder="Enter your password" required>
+      <button class="primary-btn" type="submit">Login</button>
+    </form>
+    <p class="auth-switch">Don't have an account? <a href="/register">Create Account</a></p>
+  </main>
+  <script src="/js/auth.js"></script>
+</body></html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account | L3 SOD</title><link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <h1>Create Account</h1><p class="muted">Register to access the student dashboard.</p>
+    <p class="notice error" id="error-message"></p>
+    <form action="/register" method="POST">
+      <label for="name">Full name</label><input id="name" type="text" name="name" placeholder="Enter your name" maxlength="100" required>
+      <label for="email">Email</label><input id="email" type="email" name="email" placeholder="Enter your email" required>
+      <label for="password">Password</label><input id="password" type="password" name="password" placeholder="At least 6 characters" minlength="6" required>
+      <button class="primary-btn" type="submit">Create Account</button>
+    </form>
+    <p class="auth-switch">Already have an account? <a href="/login">Login</a></p>
+  </main>
+  <script src="/js/auth.js"></script>
+</body></html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | L3 SOD</title><link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar"><button class="menu-button" id="menu-toggle" aria-label="Toggle navigation">☰</button><h1 id="welcome">Welcome</h1></header>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar">
+      <nav><a href="/">Home</a><a href="/about">About Us</a><a class="active" href="/dashboard">Dashboard</a></nav>
+      <a class="logout-link" href="/logout">Logout</a>
+    </aside>
+    <main class="main-content">
+      <div class="page-heading"><div><span class="eyebrow">OVERVIEW</span><h2>Dashboard</h2><p class="muted">Registered users and the four learning projects.</p></div></div>
+      <p id="load-error" class="notice error"></p>
+      <section class="dashboard-grid">
+        <article class="dashboard-card"><h3>Registered Users</h3><p class="card-subtitle">Users who have created an account</p><ol id="users-list" class="users-list"><li>Loading users...</li></ol></article>
+        <article class="dashboard-card"><h3>Projects</h3><p class="card-subtitle">Four learning projects</p><ol id="projects-list" class="projects-list"><li>Loading projects...</li></ol></article>
+        <article class="dashboard-card descriptions-card"><h3>Project Descriptions</h3><p class="card-subtitle">What each project focuses on</p><div id="descriptions-list" class="descriptions-list">Loading descriptions...</div></article>
+      </section>
+    </main>
+  </div>
+  <footer>© 2026 Icedrick. All Rights Reserved.</footer>
+  <script src="/js/layout.js"></script><script src="/js/dashboard.js"></script>
+</body></html>
